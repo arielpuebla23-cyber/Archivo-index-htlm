@@ -1,0 +1,209 @@
+https://github.com/arielpuebla23-cyber/Archivo-index-htlm.git<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio PRO+</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body { font-family:system-ui; background:#0d1117; color:#e6edf3; padding:10px;}
+h2 { text-align:center; }
+
+table { width:100%; border-collapse:collapse; font-size:12px;}
+th,td { padding:6px; border-bottom:1px solid #30363d; text-align:center;}
+
+input { width:100%; background:transparent; border:none; color:white; text-align:center; font-size:12px;}
+
+button {
+    margin:5px;
+    padding:8px;
+    background:#238636;
+    border:none;
+    color:white;
+    border-radius:6px;
+}
+
+.positive{color:#3fb950;}
+.negative{color:#f85149;}
+
+canvas { margin-top:20px; }
+</style>
+</head>
+
+<body>
+
+<h2>📊 Portfolio PRO+</h2>
+
+<div style="text-align:center;">
+<button onclick="add()">+ Activo</button>
+<button onclick="exportCSV()">📤 Exportar</button>
+</div>
+
+<table>
+<thead>
+<tr>
+<th>Ticker</th>
+<th>Compra</th>
+<th>Actual</th>
+<th>Cant</th>
+<th>Alerta</th>
+<th>PnL</th>
+<th>%</th>
+<th></th>
+</tr>
+</thead>
+<tbody id="tbody"></tbody>
+</table>
+
+<h3 id="summary"></h3>
+
+<canvas id="chart"></canvas>
+
+<script>
+
+let data = JSON.parse(localStorage.getItem("pf")) || [
+{ticker:"BTC-USD", buy:30000, qty:0.1, current:0, alert:null}
+];
+
+function save(){localStorage.setItem("pf", JSON.stringify(data));}
+
+function add(){
+data.push({ticker:"AAPL", buy:0, qty:0, current:0, alert:null});
+render();
+}
+
+function del(i){
+data.splice(i,1);
+save();
+render();
+}
+
+function upd(i,k,v){
+data[i][k] = k==="ticker" ? v : parseFloat(v);
+save();
+render();
+}
+
+function render(){
+let tbody = document.getElementById("tbody");
+tbody.innerHTML = "";
+
+data.forEach((d,i)=>{
+let pnl = (d.current - d.buy) * d.qty;
+let perc = d.buy ? ((d.current - d.buy) / d.buy * 100) : 0;
+
+let tr = document.createElement("tr");
+
+tr.innerHTML = `
+<td><input value="${d.ticker}" onchange="upd(${i},'ticker',this.value)"></td>
+<td><input type="number" value="${d.buy}" onchange="upd(${i},'buy',this.value)"></td>
+<td>${d.current.toFixed(2)}</td>
+<td><input type="number" value="${d.qty}" onchange="upd(${i},'qty',this.value)"></td>
+<td><input type="number" placeholder="Precio" onchange="upd(${i},'alert',this.value)"></td>
+<td class="${pnl>=0?'positive':'negative'}">${pnl.toFixed(2)}</td>
+<td class="${pnl>=0?'positive':'negative'}">${perc.toFixed(2)}%</td>
+<td><button onclick="del(${i})">X</button></td>
+`;
+
+tr.onclick = ()=>loadChart(d.ticker);
+
+tbody.appendChild(tr);
+
+checkAlert(d);
+});
+
+calc();
+}
+
+function calc(){
+let cap=0,val=0;
+
+data.forEach(d=>{
+cap += d.buy * d.qty;
+val += d.current * d.qty;
+});
+
+let pnl = val - cap;
+let perc = cap ? (pnl / cap * 100) : 0;
+
+document.getElementById("summary").innerHTML = `
+Capital: $${cap.toFixed(2)} |
+Valor: $${val.toFixed(2)} |
+PnL: <span class="${pnl>=0?'positive':'negative'}">$${pnl.toFixed(2)}</span> |
+${perc.toFixed(2)}%
+`;
+}
+
+// 📡 PRECIOS
+async function prices(){
+for(let d of data){
+try{
+let res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${d.ticker}`);
+let j = await res.json();
+d.current = j.chart.result[0].meta.regularMarketPrice || 0;
+}catch(e){}
+}
+save();
+render();
+}
+
+// 🔔 ALERTAS
+function checkAlert(d){
+if(d.alert && d.current >= d.alert){
+alert(`🚨 ${d.ticker} alcanzó ${d.current}`);
+d.alert = null;
+save();
+}
+}
+
+// 📈 CHART
+let chart;
+
+async function loadChart(ticker){
+try{
+let res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?range=1mo&interval=1d`);
+let j = await res.json();
+
+let prices = j.chart.result[0].indicators.quote[0].close;
+let labels = j.chart.result[0].timestamp.map(t=>new Date(t*1000).toLocaleDateString());
+
+draw(labels, prices);
+}catch(e){}
+}
+
+function draw(labels,dataPoints){
+let ctx = document.getElementById("chart");
+if(chart) chart.destroy();
+
+chart = new Chart(ctx,{
+type:"line",
+data:{labels:labels,datasets:[{data:dataPoints}]}
+});
+}
+
+// 📤 EXPORT
+function exportCSV(){
+let csv="Ticker,Compra,Actual,Cantidad\n";
+
+data.forEach(d=>{
+csv += `${d.ticker},${d.buy},${d.current},${d.qty}\n`;
+});
+
+let blob=new Blob([csv]);
+let a=document.createElement("a");
+a.href=URL.createObjectURL(blob);
+a.download="portfolio.csv";
+a.click();
+}
+
+// INIT
+render();
+prices();
+setInterval(prices,60000);
+
+</script>
+
+</body>
+</html>
