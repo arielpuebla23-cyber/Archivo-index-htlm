@@ -1,8 +1,8 @@
-https://github.com/arielpuebla23-cyber/Archivo-index-htlm.git<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scalet=1.0">
 <title>Portfolio PRO+</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
